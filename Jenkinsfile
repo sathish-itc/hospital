@@ -28,7 +28,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'sathish33', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     script {
                         def images = [
-                            [path: 'hospital-frontend', name: 'sathish33/frontend_api_image'],
+                            [path: 'frontend-api', name: 'sathish33/frontend_api_image'],
                             [path: 'patient-api', name: 'sathish33/patient_api_image'],
                             [path: 'appointment-api', name: 'sathish33/appointment_api_image']
                         ]
