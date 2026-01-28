@@ -47,7 +47,23 @@ pipeline {
         }
 
         // ========================
-        // 3. GCP Login & GKE Config
+        // 3. Install gcloud CLI
+        // ========================
+        stage('Install gcloud CLI') {
+            steps {
+                sh """
+                    sudo apt-get update
+                    sudo apt-get install -y apt-transport-https ca-certificates gnupg curl lsb-release
+                    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+                    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+                    sudo apt-get update && sudo apt-get install -y google-cloud-sdk
+                    gcloud version
+                """
+            }
+        }
+
+        // ========================
+        // 4. GCP Login & GKE Config
         // ========================
         stage('GCP Login & GKE Config') {
             steps {
@@ -65,7 +81,7 @@ pipeline {
         }
 
         // ========================
-        // 4. Deploy to GKE
+        // 5. Deploy to GKE
         // ========================
         stage('Deploy to GKE') {
             steps {
