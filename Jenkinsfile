@@ -24,17 +24,20 @@ pipeline {
         // ========================
         stage('Build & Push Docker Images') {
             steps {
-                // Use withCredentials to fix Docker password issue
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-password-id', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                // Use your working style credentials here
+                withCredentials([usernamePassword(credentialsId: 'sathish33', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     script {
                         def images = [
-                            [path: 'frontend-api', name: 'sathish33/frontend_api_image'],
+                            [path: 'hospital-frontend', name: 'sathish33/frontend_api_image'],
                             [path: 'patient-api', name: 'sathish33/patient_api_image'],
                             [path: 'appointment-api', name: 'sathish33/appointment_api_image']
                         ]
+
+                        // Login once
+                        sh 'echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin'
+
                         images.each { img ->
                             sh """
-                                echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
                                 docker build -t ${img.name}:${env.BUILD_ID} ${img.path}
                                 docker push ${img.name}:${env.BUILD_ID}
                             """
@@ -71,8 +74,8 @@ pipeline {
                         kubectl create namespace hospital --dry-run=client -o yaml | kubectl apply -f -
                         kubectl create secret docker-registry dockerhub-secret \
                           --docker-server=index.docker.io \
-                          --docker-username=$DOCKER_USERNAME \
-                          --docker-password=$DOCKER_PASSWORD \
+                          --docker-username=$DOCKER_USER \
+                          --docker-password=$DOCKER_PASS \
                           --namespace hospital \
                           --dry-run=client -o yaml | kubectl apply -f -
                     """
@@ -116,10 +119,8 @@ pipeline {
     // ========================
     post {
         always {
-            steps {
-                echo "Cleaning up Docker images locally"
-                sh 'docker system prune -f'
-            }
+            echo "Cleaning up local Docker images"
+            sh 'docker system prune -f'
         }
     }
 }
