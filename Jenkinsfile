@@ -2,17 +2,10 @@ pipeline {
     agent any
 
     environment {
-        // DockerHub credentials
-        DOCKER_USERNAME = credentials('dockerhub-username-id')
-        DOCKER_PASSWORD = credentials('dockerhub-password-id')
-
         // GCP variables
         GCP_PROJECT_ID = 'hospital-project'
         GKE_CLUSTER_NAME = 'cluster-1'
         GKE_REGION = 'us-central1-a'
-
-        // GCP Service Account Key
-        GCP_SA_KEY = credentials('gcp-service-account-key-id')
     }
 
     stages {
@@ -31,18 +24,21 @@ pipeline {
         // ========================
         stage('Build & Push Docker Images') {
             steps {
-                script {
-                    def images = [
-                        [path: 'hospital-frontend', name: 'sathish33/frontend_api_image'],
-                        [path: 'patient-api', name: 'sathish33/patient_api_image'],
-                        [path: 'appointment-api', name: 'sathish33/appointment_api_image']
-                    ]
-                    images.each { img ->
-                        sh """
-                            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-                            docker build -t ${img.name}:${env.BUILD_ID} ${img.path}
-                            docker push ${img.name}:${env.BUILD_ID}
-                        """
+                // Use withCredentials to fix Docker password issue
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-password-id', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    script {
+                        def images = [
+                            [path: 'frontend-api', name: 'sathish33/frontend_api_image'],
+                            [path: 'patient-api', name: 'sathish33/patient_api_image'],
+                            [path: 'appointment-api', name: 'sathish33/appointment_api_image']
+                        ]
+                        images.each { img ->
+                            sh """
+                                echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                                docker build -t ${img.name}:${env.BUILD_ID} ${img.path}
+                                docker push ${img.name}:${env.BUILD_ID}
+                            """
+                        }
                     }
                 }
             }
