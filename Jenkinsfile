@@ -2,30 +2,33 @@ pipeline {
     agent any
 
     environment {
+        // DockerHub credentials
+        DOCKER_USERNAME = credentials('dockerhub-username-id')
+        DOCKER_PASSWORD = credentials('dockerhub-password-id')
+
         // GCP variables
         GCP_PROJECT_ID = 'hospital-project'
         GKE_CLUSTER_NAME = 'cluster-1'
         GKE_REGION = 'us-central1-a'
 
-        // DockerHub credentials (stored in Jenkins credentials)
-        DOCKER_USERNAME = credentials('dockerhub-username-id')
-        DOCKER_PASSWORD = credentials('dockerhub-password-id')
-        
-        // GCP Service Account Key (stored in Jenkins as Secret File)
+        // GCP Service Account Key
         GCP_SA_KEY = credentials('gcp-service-account-key-id')
     }
 
     stages {
 
+        // ========================
+        // 1. Checkout Code
+        // ========================
         stage('Checkout Code') {
             steps {
                 checkout scm
             }
         }
 
-        // ======================================
-        // 1. Build & Push Docker Images
-        // ======================================
+        // ========================
+        // 2. Build & Push Docker Images
+        // ========================
         stage('Build & Push Docker Images') {
             steps {
                 script {
@@ -36,7 +39,7 @@ pipeline {
                     ]
                     images.each { img ->
                         sh """
-                            docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+                            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
                             docker build -t ${img.name}:${env.BUILD_ID} ${img.path}
                             docker push ${img.name}:${env.BUILD_ID}
                         """
@@ -45,12 +48,11 @@ pipeline {
             }
         }
 
-        // ======================================
-        // 2. GCP Login & GKE Config
-        // ======================================
-        stage('GCP Login') {
+        // ========================
+        // 3. GCP Login & GKE Config
+        // ========================
+        stage('GCP Login & GKE Config') {
             steps {
-                // The GCP key is stored as a secret file in Jenkins
                 withCredentials([file(credentialsId: 'gcp-service-account-key-id', variable: 'GCP_KEY_FILE')]) {
                     sh """
                         echo "Authenticating to GCP"
@@ -62,9 +64,9 @@ pipeline {
             }
         }
 
-        // ======================================
-        // 3. Deploy to GKE
-        // ======================================
+        // ========================
+        // 4. Deploy to GKE
+        // ========================
         stage('Deploy to GKE') {
             steps {
                 script {
@@ -113,10 +115,15 @@ pipeline {
         }
     }
 
+    // ========================
+    // Post-build cleanup
+    // ========================
     post {
         always {
-            echo "Cleaning up Docker images locally"
-            sh 'docker system prune -f'
+            steps {
+                echo "Cleaning up Docker images locally"
+                sh 'docker system prune -f'
+            }
         }
     }
 }
