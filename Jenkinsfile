@@ -23,7 +23,7 @@ pipeline {
         stage('Build & Push Docker Images') {
             steps {
                 withCredentials([
-                    string(credentialsId: 'DOCKER_PASSWORD', variable: 'DOCKER_PASS')
+                    string(credentialsId: 'sathish33', variable: 'DOCKER_PASS')
                 ]) {
                     sh '''
                         echo "$DOCKER_PASS" | docker login -u $DOCKER_USER --password-stdin
