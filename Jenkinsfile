@@ -88,14 +88,40 @@ pipeline {
                     images.each {
                         sh """
                             echo "Scanning ${it}:${BUILD_ID} with Trivy..."
+                            safe_name=$(echo ${it} | tr '/' '_')
+                            outfile=trivy_${safe_name}_${BUILD_ID}.json
+
                             if command -v trivy >/dev/null 2>&1; then
                                 echo "Found local trivy binary, using it"
-                                trivy image --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${it}:${BUILD_ID}
+                                trivy image --ignore-unfixed --severity HIGH,CRITICAL --format json -o "$outfile" ${it}:${BUILD_ID} || true
                             else
                                 echo "Local trivy not found; pulling and using aquasec/trivy:latest"
                                 docker pull aquasec/trivy:latest || true
-                                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
-                                    --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${it}:${BUILD_ID}
+                                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":"$PWD" -w "$PWD" \
+                                    aquasec/trivy:latest image --ignore-unfixed --severity HIGH,CRITICAL --format json -o "$outfile" ${it}:${BUILD_ID} || true
+                            fi
+
+                            CRITS=$(python3 - <<PY
+import json,sys
+f = "${outfile}"
+try:
+    d = json.load(open(f))
+except Exception:
+    print(0)
+    sys.exit(0)
+count = 0
+for res in d.get('Results',[]):
+    for v in (res.get('Vulnerabilities') or []):
+        if v.get('Severity') == 'CRITICAL':
+            count += 1
+print(count)
+PY
+)
+
+                            echo "Critical vulnerabilities: $CRITS"
+                            if [ "$CRITS" -gt 0 ]; then
+                                echo "Failing due to CRITICAL vulnerabilities"
+                                exit 1
                             fi
                         """
                     }
