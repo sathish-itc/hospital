@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        GCP_PROJECT_ID   = 'hospital-project'
+        GCP_PROJECT_ID   = 'hospital-project-485718'
         GKE_CLUSTER_NAME = 'cluster-1'
         GKE_REGION       = 'us-central1-a'
         GCLOUD_HOME      = "${WORKSPACE}/gcloud"
