@@ -114,25 +114,25 @@ pipeline {
                         kubectl apply -f mysql/deployment.yaml
 
                         echo "Deploying UI..."
-                        helm upgrade --install ui ./hpm \
-                          --namespace hospital \
-                          -f hpm/values-ui.yaml \
-                          --set image.tag=$BUILD_ID \
-                          --set imagePullSecrets[0].name=dockerhub-secret
+                        helm upgrade --install appointment appointment-api/helm \
+                            --namespace hospital \
+                            -f appointment-api/helm/values.yaml \
+                            --set image.tag=$BUILD_ID \
+                            --set imagePullSecrets[0].name=dockerhub-secret
 
-                        echo "Deploying Patient API..."
-                        helm upgrade --install patient-api ./hpm \
-                          --namespace hospital \
-                          -f hpm/values-patient_api.yaml \
-                          --set image.tag=$BUILD_ID \
-                          --set imagePullSecrets[0].name=dockerhub-secret
+                        echo "Deploying UI..."
+                        helm upgrade --install patient patient-api/helm \
+                            --namespace hospital \
+                            -f patient-api/helm/values.yaml \
+                            --set image.tag=$BUILD_ID \
+                            --set imagePullSecrets[0].name=dockerhub-secret
 
-                        echo "Deploying Appointment API..."
-                        helm upgrade --install appointment-api ./hpm \
-                          --namespace hospital \
-                          -f hpm/values-appointment_api.yaml \
-                          --set image.tag=$BUILD_ID \
-                          --set imagePullSecrets[0].name=dockerhub-secret
+                        eecho "Deploying UI..."
+                        helm upgrade --install frontend frontend-api/helm \
+                            --namespace hospital \
+                            -f frontend-api/helm/values.yaml \
+                            --set image.tag=$BUILD_ID \
+                            --set imagePullSecrets[0].name=dockerhub-secret
                     '''
                 }
             }
