@@ -86,24 +86,25 @@ pipeline {
                     ]
 
                     images.each {
-                        sh """
-                            echo "Scanning ${it}:${BUILD_ID} with Trivy..."
-                            safe_name=$(echo ${it} | tr '/' '_')
-                            outfile=trivy_${safe_name}_${BUILD_ID}.json
+                        def imageName = it
+                        sh '''
+echo "Scanning ''' + imageName + ':' + env.BUILD_ID + ''' with Trivy..."
+safe_name=$(echo ''' + imageName + ''' | tr '/' '_')
+outfile=trivy_${safe_name}_''' + env.BUILD_ID + '''.json
 
-                            if command -v trivy >/dev/null 2>&1; then
-                                echo "Found local trivy binary, using it"
-                                trivy image --ignore-unfixed --severity HIGH,CRITICAL --format json -o "$outfile" ${it}:${BUILD_ID} || true
-                            else
-                                echo "Local trivy not found; pulling and using aquasec/trivy:latest"
-                                docker pull aquasec/trivy:latest || true
-                                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":"$PWD" -w "$PWD" \
-                                    aquasec/trivy:latest image --ignore-unfixed --severity HIGH,CRITICAL --format json -o "$outfile" ${it}:${BUILD_ID} || true
-                            fi
+if command -v trivy >/dev/null 2>&1; then
+    echo "Found local trivy binary, using it"
+    trivy image --ignore-unfixed --severity HIGH,CRITICAL --format json -o "$outfile" ''' + imageName + ':' + env.BUILD_ID + ''' || true
+else
+    echo "Local trivy not found; pulling and using aquasec/trivy:latest"
+    docker pull aquasec/trivy:latest || true
+    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":"$PWD" -w "$PWD" \
+        aquasec/trivy:latest image --ignore-unfixed --severity HIGH,CRITICAL --format json -o "$outfile" ''' + imageName + ':' + env.BUILD_ID + ''' || true
+fi
 
-                            CRITS=$(python3 - <<PY
+CRITS=$(python3 - <<'PY'
 import json,sys
-f = "${outfile}"
+f = sys.argv[1]
 try:
     d = json.load(open(f))
 except Exception:
@@ -116,14 +117,14 @@ for res in d.get('Results',[]):
             count += 1
 print(count)
 PY
-)
+"$outfile")
 
-                            echo "Critical vulnerabilities: $CRITS"
-                            if [ "$CRITS" -gt 0 ]; then
-                                echo "Failing due to CRITICAL vulnerabilities"
-                                exit 1
-                            fi
-                        """
+echo "Critical vulnerabilities: $CRITS"
+if [ "$CRITS" -gt 0 ]; then
+    echo "Failing due to CRITICAL vulnerabilities"
+    exit 1
+fi
+'''
                     }
                 }
             }
