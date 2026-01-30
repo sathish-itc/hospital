@@ -63,24 +63,31 @@ pipeline {
         }
 
         stage('GCP Login & Fetch GKE Credentials') {
-            steps {
-                withCredentials([
-                    file(credentialsId: 'GCP_SERVICE_ACCOUNT_KEY', variable: 'GCP_KEY_FILE')
-                ]) {
-                    sh '''
-                        echo "Activating GCP service account..."
-                        gcloud auth activate-service-account --key-file="$GCP_KEY_FILE"
-                        gcloud config set project $GCP_PROJECT_ID
+    steps {
+        withCredentials([
+            file(credentialsId: 'GCP_SERVICE_ACCOUNT_KEY', variable: 'GCP_KEY_FILE')
+        ]) {
+            sh '''
+                echo "Activating GCP service account..."
+                gcloud auth activate-service-account --key-file="$GCP_KEY_FILE"
+                gcloud config set project $GCP_PROJECT_ID
 
-                        echo "Fetching GKE cluster credentials..."
-                        gcloud container clusters get-credentials $GKE_CLUSTER_NAME --region $GKE_REGION
+                echo "Installing GKE auth plugin..."
+                gcloud components install gke-gcloud-auth-plugin --quiet
 
-                        echo "Verifying access..."
-                        kubectl get nodes
-                    '''
-                }
-            }
+                echo "Enabling GKE auth plugin..."
+                export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+
+                echo "Fetching GKE cluster credentials..."
+                gcloud container clusters get-credentials $GKE_CLUSTER_NAME --zone $GKE_REGION
+
+                echo "Verifying access..."
+                kubectl get nodes
+            '''
         }
+    }
+}
+
 
         stage('Deploy to GKE') {
             steps {
