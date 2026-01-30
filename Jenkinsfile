@@ -113,14 +113,14 @@ pipeline {
                         echo "Deploying MySQL..."
                         kubectl apply -f mysql/deployment.yaml
 
-                        echo "Deploying UI..."
+                        echo "Deploying Backend..."
                         helm upgrade --install appointment appointment-api/helm \
                             --namespace hospital \
                             -f appointment-api/helm/values.yaml \
                             --set image.tag=$BUILD_ID \
                             --set imagePullSecrets[0].name=dockerhub-secret
 
-                        echo "Deploying UI..."
+                        echo "Deploying backend..."
                         helm upgrade --install patient patient-api/helm \
                             --namespace hospital \
                             -f patient-api/helm/values.yaml \
