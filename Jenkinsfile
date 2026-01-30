@@ -19,16 +19,12 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withCredentials([
-                    string(credentialsId: 'SonarQube', variable: 'SONAR_TOKEN')
-                ]) {
+                withSonarQubeEnv('SonarQube') {
                     sh '''
                         echo "Running SonarQube analysis..."
                         sonar-scanner \
                           -Dsonar.projectKey=hospital-project \
-                          -Dsonar.sources=. \
-                          -Dsonar.host.url=http://20.75.196.235:9000 \
-                          -Dsonar.login=$SONAR_TOKEN
+                          -Dsonar.sources=.
                     '''
                 }
             }
