@@ -90,7 +90,7 @@ pipeline {
             }
         }
 
-        stage('Install gcloud CLI (no sudo)') {
+        stage('Install gcloud CLI & GKE Plugin') {
             steps {
                 sh '''
                     if [ ! -d "$GCLOUD_HOME/google-cloud-sdk" ]; then
@@ -101,15 +101,17 @@ pipeline {
                         echo "gcloud already installed"
                     fi
 
+                    # Add gcloud to PATH and enable GKE auth plugin
+                    echo "export PATH=$GCLOUD_HOME/google-cloud-sdk/bin:\$PATH" >> $BASH_ENV
+                    echo "export USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $BASH_ENV
+                    export PATH=$GCLOUD_HOME/google-cloud-sdk/bin:$PATH
+                    export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+
                     gcloud version
-                    echo "Installing gke-gcloud-auth-plugin (for kubectl GKE auth)"
                     gcloud components install gke-gcloud-auth-plugin --quiet || true
-                    if command -v gke-gcloud-auth-plugin >/dev/null 2>&1; then
-                        echo "gke-gcloud-auth-plugin installed at: $(command -v gke-gcloud-auth-plugin)"
-                    else
-                        echo "WARNING: gke-gcloud-auth-plugin not found in PATH. Check installation." >&2
-                        ls -la $GCLOUD_HOME/google-cloud-sdk/bin || true
-                    fi
+
+                    # Verify installation
+                    command -v gke-gcloud-auth-plugin
                 '''
             }
         }
@@ -124,16 +126,11 @@ pipeline {
                         gcloud auth activate-service-account --key-file="$GCP_KEY_FILE"
                         gcloud config set project $GCP_PROJECT_ID
 
-                        echo "Installing GKE auth plugin..."
-                        gcloud components install gke-gcloud-auth-plugin --quiet
-
-                        echo "Enabling GKE auth plugin..."
-                        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
-
                         echo "Fetching GKE cluster credentials..."
                         gcloud container clusters get-credentials $GKE_CLUSTER_NAME --zone $GKE_REGION
 
-                        echo "Verifying access..."
+                        echo "Verifying kubectl access..."
+                        kubectl version --client
                         kubectl get nodes
                     '''
                 }
