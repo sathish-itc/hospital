@@ -40,14 +40,16 @@ pipeline {
 
 
 
-        stage('SonarQube Quality Gate') {
-            steps {
-                echo "Waiting for SonarQube Quality Gate..."
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
+        withSonarQubeEnv(installationName: 'SonarQube') {
+    sh """
+       echo "Running SonarQube analysis..."
+       sonar-scanner \
+          -Dsonar.projectKey=hospital-project \
+          -Dsonar.sources=. \
+          -Dsonar.host.url=http://20.75.196.235:9000 \
+          -Dsonar.login=$SONAR_TOKEN
+    """
+}
 
         stage('Build & Push Docker Images') {
             steps {
