@@ -20,18 +20,24 @@ pipeline {
         stage('SonarQube Analysis') {
     steps {
         script {
+            // Use the SonarScanner installed in Jenkins
             def scannerHome = tool 'SonarScanner'
+
+            // Inject SonarQube environment variables
             withSonarQubeEnv('SonarQube') {
                 sh """
                     echo "Running SonarQube analysis..."
                     ${scannerHome}/bin/sonar-scanner \
-                      -Dsonar.projectKey=hospital-project \
-                      -Dsonar.sources=.
+                        -Dsonar.projectKey=hospital-project \
+                        -Dsonar.sources=. \
+                        -Dsonar.host.url=http://20.75.196.235:9000 \
+                        -Dsonar.login=$SONAR_AUTH_TOKEN
                 """
             }
         }
     }
 }
+
 
 
         stage('SonarQube Quality Gate') {
