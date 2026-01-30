@@ -102,6 +102,14 @@ pipeline {
                     fi
 
                     gcloud version
+                    echo "Installing gke-gcloud-auth-plugin (for kubectl GKE auth)"
+                    gcloud components install gke-gcloud-auth-plugin --quiet || true
+                    if command -v gke-gcloud-auth-plugin >/dev/null 2>&1; then
+                        echo "gke-gcloud-auth-plugin installed at: $(command -v gke-gcloud-auth-plugin)"
+                    else
+                        echo "WARNING: gke-gcloud-auth-plugin not found in PATH. Check installation." >&2
+                        ls -la $GCLOUD_HOME/google-cloud-sdk/bin || true
+                    fi
                 '''
             }
         }
