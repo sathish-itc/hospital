@@ -7,6 +7,8 @@ pipeline {
         GKE_REGION       = 'us-central1-a'
         GCLOUD_HOME      = "${WORKSPACE}/gcloud"
         PATH             = "${WORKSPACE}/gcloud/google-cloud-sdk/bin:${env.PATH}"
+        DOCKER_REGISTRY  = 'sathish33'
+        BUILD_TAG        = "${BUILD_ID}"
     }
 
     stages {
@@ -50,15 +52,15 @@ pipeline {
                         sh 'echo "$DOCKER_PASS" | env -u DOCKER_API_VERSION docker login -u "$DOCKER_USER" --password-stdin'
 
                         def images = [
-                            [dir: 'frontend-api',    name: 'sathish33/frontend_api_image'],
-                            [dir: 'patient-api',     name: 'sathish33/patient_api_image'],
-                            [dir: 'appointment-api', name: 'sathish33/appointment_api_image']
+                            [dir: 'frontend-api',    name: "${DOCKER_REGISTRY}/frontend_api_image"],
+                            [dir: 'patient-api',     name: "${DOCKER_REGISTRY}/patient_api_image"],
+                            [dir: 'appointment-api', name: "${DOCKER_REGISTRY}/appointment_api_image"]
                         ]
 
                         images.each {
                             sh """
-                                env -u DOCKER_API_VERSION docker build -t ${it.name}:${BUILD_ID} ${it.dir}
-                                env -u DOCKER_API_VERSION docker push ${it.name}:${BUILD_ID}
+                                env -u DOCKER_API_VERSION docker build -t ${it.name}:${BUILD_TAG} ${it.dir}
+                                env -u DOCKER_API_VERSION docker push ${it.name}:${BUILD_TAG}
                             """
                         }
                     }
@@ -70,49 +72,18 @@ pipeline {
             steps {
                 script {
                     def images = [
-                        'sathish33/frontend_api_image',
-                        'sathish33/patient_api_image',
-                        'sathish33/appointment_api_image'
+                        "${DOCKER_REGISTRY}/frontend_api_image",
+                        "${DOCKER_REGISTRY}/patient_api_image",
+                        "${DOCKER_REGISTRY}/appointment_api_image"
                     ]
 
                     images.each { imageName ->
                         sh """
-                            echo "Scanning ${imageName}:${BUILD_ID} with Trivy..."
-                            safe_name=\$(echo ${imageName} | tr '/' '_')
-                            outfile=trivy_\${safe_name}_${BUILD_ID}.json
-
-                            # Run Trivy (ignore errors so pipeline continues)
-                            if command -v trivy >/dev/null 2>&1; then
-                                echo "Using local Trivy binary"
-                                trivy image --ignore-unfixed --severity HIGH,CRITICAL --format json -o "\$outfile" ${imageName}:${BUILD_ID} || true
-                            else
-                                echo "Pulling Trivy Docker image..."
-                                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":"$PWD" -w "$PWD" aquasec/trivy:latest \
-                                    image --ignore-unfixed --severity HIGH,CRITICAL --format json -o "\$outfile" ${imageName}:${BUILD_ID} || true
-                            fi
-
-                            # Count CRITICAL vulnerabilities
-                            CRITS=\$(python3 - <<PY
-import json
-try:
-    with open("\$outfile") as f:
-        data = json.load(f)
-except Exception:
-    print(0)
-    raise SystemExit(0)
-count = 0
-for res in data.get("Results", []):
-    for v in (res.get("Vulnerabilities") or []):
-        if v.get("Severity") == "CRITICAL":
-            count += 1
-print(count)
-PY
-)
-
-                            echo "Critical vulnerabilities: \$CRITS"
-                            if [ "\$CRITS" -gt 0 ]; then
-                                echo "Non-blocking study mode: CRITICAL vulnerabilities found (\$CRITS). Continuing the pipeline."
-                            fi
+                            echo "🔍 Scanning ${imageName}:${BUILD_TAG} with Trivy..."
+                            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest \
+                                image --ignore-unfixed --severity HIGH,CRITICAL --format table ${imageName}:${BUILD_TAG} || true
+                            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest \
+                                image --ignore-unfixed --severity HIGH,CRITICAL --format json --output ${imageName.replace('/', '_')}-trivy.json ${imageName}:${BUILD_TAG} || true
                         """
                     }
                 }
@@ -189,21 +160,21 @@ PY
                         helm upgrade --install appointment appointment-api/helm \
                             --namespace hospital \
                             -f appointment-api/helm/values.yaml \
-                            --set image.tag=$BUILD_ID \
+                            --set image.tag=$BUILD_TAG \
                             --set imagePullSecrets[0].name=dockerhub-secret
 
                         echo "Deploying Patient API..."
                         helm upgrade --install patient patient-api/helm \
                             --namespace hospital \
                             -f patient-api/helm/values.yaml \
-                            --set image.tag=$BUILD_ID \
+                            --set image.tag=$BUILD_TAG \
                             --set imagePullSecrets[0].name=dockerhub-secret
 
                         echo "Deploying Frontend UI..."
                         helm upgrade --install frontend frontend-api/helm \
                             --namespace hospital \
                             -f frontend-api/helm/values.yaml \
-                            --set image.tag=$BUILD_ID \
+                            --set image.tag=$BUILD_TAG \
                             --set imagePullSecrets[0].name=dockerhub-secret
                     '''
                 }
@@ -213,7 +184,7 @@ PY
 
     post {
         always {
-            echo 'Cleaning up Docker cache'
+            echo '🧹 Cleaning up Docker cache'
             sh 'env -u DOCKER_API_VERSION docker system prune -f'
         }
     }
