@@ -88,8 +88,15 @@ pipeline {
                     images.each {
                         sh """
                             echo "Scanning ${it}:${BUILD_ID} with Trivy..."
-                            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.46.2 image \
-                                --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${it}:${BUILD_ID}
+                            if command -v trivy >/dev/null 2>&1; then
+                                echo "Found local trivy binary, using it"
+                                trivy image --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${it}:${BUILD_ID}
+                            else
+                                echo "Local trivy not found; pulling and using aquasec/trivy:latest"
+                                docker pull aquasec/trivy:latest || true
+                                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
+                                    --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${it}:${BUILD_ID}
+                            fi
                         """
                     }
                 }
