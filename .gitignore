@@ -1,0 +1,14 @@
+
+# Terraform
+terraform-import/.terraform/
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Terraform
+terraform-import/.terraform/
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl

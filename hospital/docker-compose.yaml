@@ -1,0 +1,54 @@
+
+
+networks:
+  hpm:
+    driver: bridge
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_hospital
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: pass123
+      MYSQL_DATABASE: hospital
+      MYSQL_USER: user
+      MYSQL_PASSWORD: pass123
+    ports:
+      - "3306:3306"
+    networks:
+      - hpm
+
+  patient-api:
+    image: dockeritc778/patient-api:latest
+    container_name: patient-api
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mysql
+    networks:
+      - hpm
+
+  appointment-api:
+    image: dockeritc778/appointment-api:latest
+    container_name: appointment-api
+    restart: always
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mysql
+    networks:
+      - hpm
+
+  ui:
+    image: dockeritc778/hpm:v5
+    container_name: hospital-ui
+    restart: always
+    ports:
+      - "4200:80"
+    depends_on:
+      - patient-api
+      - appointment-api
+    networks:
+      - hpm

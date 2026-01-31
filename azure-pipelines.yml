@@ -1,0 +1,140 @@
+trigger:
+  - master
+
+pool:
+  name: Default
+
+variables:
+  - group: microservice_group
+
+stages:
+
+# ======================================
+# 1. Build & Push Docker Images
+# ======================================
+- stage: docker_build
+  displayName: Build & Push Docker Images
+  jobs:
+  - job: build
+    displayName: Docker Build
+    steps:
+    - checkout: self
+
+    - task: Docker@2
+      displayName: Build & Push Frontend
+      inputs:
+        containerRegistry: DockerHubServiceConnection
+        repository: sathish33/frontend_api_image
+        command: buildAndPush
+        dockerfile: hospital-frontend/Dockerfile
+        buildContext: hospital-frontend
+        tags: |
+          $(Build.BuildId)
+
+    - task: Docker@2
+      displayName: Build & Push Patient API
+      inputs:
+        containerRegistry: DockerHubServiceConnection
+        repository: sathish33/patient_api_image
+        command: buildAndPush
+        dockerfile: patient-api/Dockerfile
+        buildContext: patient-api
+        tags: |
+          $(Build.BuildId)
+
+    - task: Docker@2
+      displayName: Build & Push Appointment API
+      inputs:
+        containerRegistry: DockerHubServiceConnection
+        repository: sathish33/appointment_api_image
+        command: buildAndPush
+        dockerfile: appointment-api/Dockerfile
+        buildContext: appointment-api
+        tags: |
+          $(Build.BuildId)
+
+# ======================================
+# 2. Login to Azure & AKS
+# ======================================
+- stage: aks_login
+  displayName: AKS Login
+  dependsOn: docker_build
+  jobs:
+  - job: login
+    steps:
+    - checkout: none
+    - script: |
+        az login --service-principal \
+          -u $(AZURE_APP_ID) \
+          -p $(AZURE_PASSWORD) \
+          --tenant $(AZURE_TENANT)
+
+        az aks get-credentials \
+          --resource-group $(AKS_RESOURCE_GROUP) \
+          --name $(AKS_CLUSTER_NAME) \
+          --overwrite-existing
+      displayName: Login to Azure & AKS
+
+# ======================================
+# 3. Deploy to AKS
+# ======================================
+- stage: deploy
+  displayName: Deploy to AKS
+  dependsOn: aks_login
+  jobs:
+  - job: deploy
+    steps:
+    - checkout: self
+
+    # Namespace + DockerHub Secret
+    - script: |
+        kubectl create namespace hospital \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+        kubectl create secret docker-registry dockerhub-secret \
+          --docker-server=index.docker.io \
+          --docker-username=$(DOCKER_USERNAME) \
+          --docker-password=$(DOCKER_PASSWORD) \
+          --namespace hospital \
+          --dry-run=client -o yaml | kubectl apply -f -
+      displayName: Namespace & DockerHub Secret
+
+    # ======================================
+    # MySQL (from manifest)
+    # ======================================
+    - script: |
+        kubectl apply -f k8s/mysql/mysql-deployment.yaml
+      displayName: Deploy MySQL
+
+    # ======================================
+    # UI
+    # ======================================
+    - script: |
+        helm upgrade --install ui ./hpm \
+          --namespace hospital \
+          -f hpm/values-ui.yaml \
+          --set image.tag=$(Build.BuildId) \
+          --set imagePullSecrets[0].name=dockerhub-secret
+      displayName: Deploy UI
+
+    # ======================================
+    # Patient API
+    # ======================================
+    - script: |
+        helm upgrade --install patient-api ./hpm \
+          --namespace hospital \
+          -f hpm/values-patient_api.yaml \
+          --set image.tag=$(Build.BuildId) \
+          --set imagePullSecrets[0].name=dockerhub-secret
+      displayName: Deploy Patient API
+
+    # ======================================
+    # Appointment API
+    # ======================================
+    - script: |
+        helm upgrade --install appointment-api ./hpm \
+          --namespace hospital \
+          -f hpm/values-appointment_api.yaml \
+          --set image.tag=$(Build.BuildId) \
+          --set imagePullSecrets[0].name=dockerhub-secret
+      displayName: Deploy Appointment API
