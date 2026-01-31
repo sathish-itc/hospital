@@ -13,6 +13,8 @@ spec:
       labels:
         app: mysql
     spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: db-pool
       containers:
         - name: mysql
           image: mysql:8.0

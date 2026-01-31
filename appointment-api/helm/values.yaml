@@ -130,7 +130,8 @@ volumeMounts: []
 #   mountPath: "/etc/foo"
 #   readOnly: true
 
-nodeSelector: {}
+nodeSelector:
+  cloud.google.com/gke-nodepool: db-pool
 
 tolerations: []
 
