@@ -1,4 +1,4 @@
-@Library('hospital-Shard_library@final') _
+@Library('hospital-Shard_library@main') _
 
 pipeline {
     agent any
