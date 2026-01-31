@@ -62,7 +62,6 @@ pipeline {
                     sh '''
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                     '''
-
                     script {
                         def images = [
                             [dir: 'frontend-api',    name: "${DOCKER_REGISTRY}/frontend_api_image"],
@@ -119,6 +118,24 @@ pipeline {
             }
         }
 
+        stage('Terraform: Show Imported GKE Cluster') {
+            steps {
+                dir('terraform') {
+                    withCredentials([
+                        file(credentialsId: 'GCP_SERVICE_ACCOUNT_KEY', variable: 'GCP_KEY_FILE')
+                    ]) {
+                        sh '''
+                            export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY_FILE
+                            terraform init
+                            terraform plan -out=tfplan
+                            terraform show -json tfplan
+                            terraform output
+                        '''
+                    }
+                }
+            }
+        }
+
         stage('Deploy to GKE') {
             steps {
                 withCredentials([
@@ -158,6 +175,7 @@ pipeline {
                 }
             }
         }
+
     }
 
     post {
@@ -166,4 +184,3 @@ pipeline {
         }
     }
 }
-s
