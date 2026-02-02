@@ -1,0 +1,86 @@
+---
+# Source: kibana/templates/networkpolicy.yaml
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: kibana
+  namespace: "logging"
+  labels:
+    app.kubernetes.io/instance: kibana
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kibana
+    app.kubernetes.io/version: 9.1.2
+    helm.sh/chart: kibana-12.1.10
+    app.kubernetes.io/component: server
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: kibana
+      app.kubernetes.io/name: kibana
+      app.kubernetes.io/component: server
+  policyTypes:
+    - Ingress
+    - Egress
+  egress:
+    - {}
+  ingress:
+    - ports:
+        - port: 5601
+---
+# Source: kibana/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kibana
+  namespace: "logging"
+  labels:
+    app.kubernetes.io/instance: kibana
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kibana
+    app.kubernetes.io/version: 9.1.2
+    helm.sh/chart: kibana-12.1.10
+automountServiceAccountToken: false
+---
+# Source: kibana/templates/pvc.yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: kibana
+  namespace: "logging"
+  labels:
+    app.kubernetes.io/instance: kibana
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kibana
+    app.kubernetes.io/version: 9.1.2
+    helm.sh/chart: kibana-12.1.10
+spec:
+  accessModes:
+    - "ReadWriteOnce"
+  resources:
+    requests:
+      storage: "10Gi"
+---
+# Source: kibana/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  namespace: "logging"
+  labels:
+    app.kubernetes.io/instance: kibana
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kibana
+    app.kubernetes.io/version: 9.1.2
+    helm.sh/chart: kibana-12.1.10
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+    - name: http
+      port: 5601
+      targetPort: http
+      nodePort: null
+  selector:
+    app.kubernetes.io/instance: kibana
+    app.kubernetes.io/name: kibana
+
